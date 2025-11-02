@@ -12,7 +12,7 @@ import logging
 from .models import Listing, Booking, Payment
 from .serializers import ListingSerializer, BookingSerializer, PaymentSerializer, PaymentInitiateSerializer
 from .services import ChapaPaymentService
-from .tasks import send_payment_confirmation_email, send_payment_failed_email
+from .tasks import send_payment_confirmation_email, send_payment_failed_email, send_booking_confirmation_email
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,10 @@ class BookingViewSet(viewsets.ModelViewSet):
 	def perform_create(self, serializer):  # set user automatically if not provided
 		# If client doesn't send user, fall back to request.user
 		user = serializer.validated_data.get("user") or self.request.user
-		serializer.save(user=user)
+		booking = serializer.save(user=user)
+		
+		# Send booking confirmation email asynchronously
+		send_booking_confirmation_email.delay(booking.id)
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
